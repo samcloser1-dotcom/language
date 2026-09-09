@@ -12,6 +12,9 @@ try:
     HAS_WEBRTC = True
 except Exception:
     HAS_WEBRTC = False
+    webrtc_streamer = None  # type: ignore
+    WebRtcMode = None  # type: ignore
+    RTCConfiguration = None  # type: ignore
 
 # Force Pure Python Protobuf Implementation
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -326,8 +329,8 @@ with col2:
         if st.button("⌫ Delete Last Char", use_container_width=True):
             st.session_state.predictor.delete_last_char()
 
-if HAS_WEBRTC:
-    RTC_CONFIGURATION = RTCConfiguration(
+if HAS_WEBRTC and RTCConfiguration is not None:
+    RTC_CONFIGURATION = RTCConfiguration(  # type: ignore
         {
             "iceServers": [
                 {"urls": ["stun:stun.l.google.com:19302"]},
@@ -351,34 +354,53 @@ if HAS_WEBRTC:
                     max_num_hands=2
                 ) if mp_hands else None
             except Exception:
-                self.hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+                try:
+                    self.hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+                except Exception:
+                    self.hands = None
+            
+            # Thread-safe predictor instance for background WebRTC execution
+            self.predictor = SignLanguagePredictor()
 
-        def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        def recv(self, frame: "av.VideoFrame") -> "av.VideoFrame":  # type: ignore
             img = frame.to_ndarray(format="bgr24")
             img = cv2.flip(img, 1)
             rgb_frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
             results = self.hands.process(rgb_frame) if self.hands else None
             draw_styled_landmarks(img, results)
-            sign, conf, sentence = st.session_state.predictor.process_frame(results)
+            
+            sign, conf, sentence = self.predictor.process_frame(results)
 
-            cv2.rectangle(img, (10, 10), (320, 60), (0, 0, 0), -1)
-            cv2.putText(img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+            # Draw HUD visual overlay directly onto video stream
+            h, w, _ = img.shape
+            cv2.rectangle(img, (0, 0), (w, 55), (15, 23, 42), -1)
+            cv2.line(img, (0, 55), (w, 55), (0, 229, 255), 2)
+            banner_text = f"SIGN: {sign.upper()} ({conf*100:.1f}%)"
+            cv2.putText(img, banner_text, (15, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2, cv2.LINE_AA)
+            
+            if sentence:
+                cv2.rectangle(img, (0, h - 45), (w, h), (15, 23, 42), -1)
+                cv2.line(img, (0, h - 45), (w, h - 45), (0, 229, 255), 1)
+                sent_text = f"Sentence: {sentence}"
+                cv2.putText(img, sent_text, (15, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1, cv2.LINE_AA)
 
-            return av.VideoFrame.from_ndarray(img, format="bgr24")
+            return av.VideoFrame.from_ndarray(img, format="bgr24")  # type: ignore
+else:
+    RTC_CONFIGURATION = None
 
 # Video Stream Processing Loop
 if st.session_state.camera_running:
     cap = cv2.VideoCapture(0)
     
     if not cap.isOpened():
-        if HAS_WEBRTC:
+        if HAS_WEBRTC and webrtc_streamer is not None:
             status_placeholder.info("🎥 **Live WebRTC Stream Active:** Click 'START' below to open your browser camera in continuous 30 FPS live mode on Streamlit Cloud!")
-            webrtc_streamer(
+            webrtc_streamer(  # type: ignore
                 key="sign-language-cloud-stream",
-                mode=WebRtcMode.SENDRECV,
-                rtc_configuration=RTC_CONFIGURATION,
-                video_processor_factory=CloudVideoProcessor,
+                mode=WebRtcMode.SENDRECV if WebRtcMode else "SENDRECV",  # type: ignore
+                rtc_configuration=RTC_CONFIGURATION,  # type: ignore
+                video_processor_factory=CloudVideoProcessor,  # type: ignore
                 media_stream_constraints={"video": True, "audio": False},
                 async_processing=True,
             )
