@@ -77,11 +77,14 @@ if "tts" not in st.session_state:
 if "camera_running" not in st.session_state:
     st.session_state.camera_running = False
 
-# Sidebar Controls
-st.sidebar.title("🎛️ System Controls")
-st.sidebar.markdown("---")
+# Input Source Mode Selection
+input_mode = st.sidebar.radio(
+    "📷 Choose Input Source:",
+    ["📷 Browser Camera (Cloud & Mobile)", "📁 Upload Gesture Image", "▶ Local Hardware Webcam"],
+    index=0
+)
 
-run_camera = st.sidebar.toggle("▶ Start Webcam Feed", value=st.session_state.camera_running)
+run_camera = True if input_mode == "▶ Local Hardware Webcam" else False
 st.session_state.camera_running = run_camera
 
 conf_thresh = st.sidebar.slider("Confidence Threshold", min_value=0.40, max_value=0.95, value=0.60, step=0.05)
@@ -99,9 +102,9 @@ if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
         samples_recorded = 0
         
         try:
-            calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2)
+            calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2) if mp_hands else None
         except Exception:
-            calib_hands = mp_hands.Hands(max_num_hands=2)
+            calib_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
 
         os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
         file_exists = os.path.exists(CSV_PATH)
@@ -109,24 +112,25 @@ if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
         recorded_rows = []
         start_time = time.time()
 
-        while samples_recorded < 30 and (time.time() - start_time) < 10.0:
-            ret, frame = cap_calib.read()
-            if not ret:
-                time.sleep(0.05)
-                continue
+        if cap_calib and cap_calib.isOpened() and calib_hands:
+            while samples_recorded < 30 and (time.time() - start_time) < 10.0:
+                ret, frame = cap_calib.read()
+                if not ret:
+                    time.sleep(0.05)
+                    continue
 
-            frame = cv2.flip(frame, 1)
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            res = calib_hands.process(rgb)
+                frame = cv2.flip(frame, 1)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                res = calib_hands.process(rgb)
 
-            if res and res.multi_hand_landmarks:
-                feats = extract_landmarks(res)
-                recorded_rows.append([target_sign_calib] + feats.tolist())
-                samples_recorded += 1
-                time.sleep(0.08)
+                if res and getattr(res, "multi_hand_landmarks", None):
+                    feats = extract_landmarks(res)
+                    recorded_rows.append([target_sign_calib] + feats.tolist())
+                    samples_recorded += 1
+                    time.sleep(0.08)
 
-        cap_calib.release()
-        calib_hands.close()
+            cap_calib.release()
+            calib_hands.close()
 
         if samples_recorded > 0:
             with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
@@ -139,7 +143,7 @@ if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
             st.session_state.predictor.load_model()
             st.sidebar.success(f"Successfully recorded {samples_recorded} real frames for '{target_sign_calib}'! Model accuracy: {acc*100:.1f}%")
         else:
-            st.sidebar.error("Could not detect hand in camera feed during calibration. Please try again!")
+            st.sidebar.error("Calibration require a local hardware camera. Use on localhost for live calibration!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Model & Dataset Actions")
@@ -172,7 +176,7 @@ st.markdown("<p class='sub-header'>Powered by MediaPipe Hand Keypoint Mesh & Dee
 col1, col2 = st.columns([3, 2])
 
 with col1:
-    st.subheader("📹 Live Camera Feed & Landmark Tracking")
+    st.subheader("📹 Camera Feed & Landmark Tracking")
     frame_placeholder = st.empty()
     status_placeholder = st.empty()
 
@@ -207,65 +211,121 @@ with col2:
         if st.button("⌫ Delete Last Char", use_container_width=True):
             st.session_state.predictor.delete_last_char()
 
-# Video Stream Processing Loop
-if st.session_state.camera_running:
-    cap = cv2.VideoCapture(0)
+
+def process_and_display_frame(frame):
+    """Processes a BGR image frame, extracts landmarks, predicts sign, and updates dashboard UI."""
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
-    if not cap.isOpened():
-        status_placeholder.error("Could not open webcam (Device Index 0). Please check your camera permissions.")
-    else:
-        status_placeholder.info("Camera active. Show ASL hand gestures to start translating!")
+    # Process Hand Landmarks
+    try:
+        hands_solution = mp_hands.Hands(
+            model_complexity=1,
+            min_detection_confidence=0.55,
+            min_tracking_confidence=0.55,
+            max_num_hands=2
+        ) if mp_hands else None
+    except Exception:
+        hands_solution = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+
+    results = hands_solution.process(rgb_frame) if hands_solution else None
+
+    # Draw Skeletal Hand Mesh
+    draw_styled_landmarks(frame, results)
+
+    # Predict Sign Gesture
+    sign, conf, sentence = st.session_state.predictor.process_frame(results)
+
+    # Visual Banner Overlay on Frame
+    cv2.rectangle(frame, (10, 10), (320, 60), (0, 0, 0), -1)
+    cv2.putText(frame, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+
+    # Render Stream to Web Viewport
+    frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB")
+
+    # Render Live Dashboard Updates
+    sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+    conf_bar.progress(int(conf * 100))
+    conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+    sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+    
+    if hands_solution:
+        hands_solution.close()
+
+
+# ------------------------------
+# Input Mode Processing
+# ------------------------------
+if input_mode == "📷 Browser Camera (Cloud & Mobile)":
+    st.info("💡 **Cloud Mode Active:** Take a photo or snapshot using your browser's camera to translate ASL hand signs!")
+    camera_img = st.camera_input("Capture Hand Sign Snapshot")
+    if camera_img is not None:
+        bytes_data = camera_img.getvalue()
+        cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+        if cv2_img is not None:
+            process_and_display_frame(cv2_img)
+
+elif input_mode == "📁 Upload Gesture Image":
+    uploaded_file = st.file_uploader("Upload a hand gesture image (JPG / PNG):", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        bytes_data = uploaded_file.getvalue()
+        cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+        if cv2_img is not None:
+            process_and_display_frame(cv2_img)
+
+elif input_mode == "▶ Local Hardware Webcam":
+    if st.session_state.camera_running:
+        cap = cv2.VideoCapture(0)
         
-        try:
-            thread_hands = mp_hands.Hands(
-                model_complexity=1,
-                min_detection_confidence=0.55,
-                min_tracking_confidence=0.55,
-                max_num_hands=2
-            )
-        except Exception:
-            thread_hands = mp_hands.Hands(max_num_hands=2)
+        if not cap.isOpened():
+            status_placeholder.error("⚠️ Could not access local server hardware camera. On Cloud hosting (Streamlit Cloud), please select '📷 Browser Camera (Cloud & Mobile)' in the sidebar!")
+        else:
+            status_placeholder.info("Camera active. Show ASL hand gestures to start translating!")
+            
+            try:
+                thread_hands = mp_hands.Hands(
+                    model_complexity=1,
+                    min_detection_confidence=0.55,
+                    min_tracking_confidence=0.55,
+                    max_num_hands=2
+                ) if mp_hands else None
+            except Exception:
+                thread_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
 
-        while st.session_state.camera_running and cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                time.sleep(0.02)
-                continue
+            while st.session_state.camera_running and cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    time.sleep(0.02)
+                    continue
 
-            frame = cv2.flip(frame, 1)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.flip(frame, 1)
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Process Hand Landmarks
-            results = thread_hands.process(rgb_frame)
+                # Process Hand Landmarks
+                results = thread_hands.process(rgb_frame) if thread_hands else None
 
-            # Draw Skeletal Hand Mesh
-            draw_styled_landmarks(frame, results)
+                # Draw Skeletal Hand Mesh
+                draw_styled_landmarks(frame, results)
 
-            # Predict Sign Gesture
-            sign, conf, sentence = st.session_state.predictor.process_frame(results)
+                # Predict Sign Gesture
+                sign, conf, sentence = st.session_state.predictor.process_frame(results)
 
-            # Visual Banner Overlay on Frame
-            cv2.rectangle(frame, (10, 10), (320, 60), (0, 0, 0), -1)
-            cv2.putText(frame, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+                # Visual Banner Overlay on Frame
+                cv2.rectangle(frame, (10, 10), (320, 60), (0, 0, 0), -1)
+                cv2.putText(frame, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
 
-            # Render Stream to Web Viewport
-            frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB")
+                # Render Stream to Web Viewport
+                frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB")
 
-            # Render Live Dashboard Updates
-            sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
-            conf_bar.progress(int(conf * 100))
-            conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
-            sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+                # Render Live Dashboard Updates
+                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+                conf_bar.progress(int(conf * 100))
+                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
 
-            time.sleep(0.01)
+                time.sleep(0.01)
 
-        cap.release()
-        thread_hands.close()
-        status_placeholder.warning("Camera stream stopped.")
+            cap.release()
+            if thread_hands:
+                thread_hands.close()
+            status_placeholder.warning("Camera stream stopped.")
 
-else:
-    frame_placeholder.info("Camera is currently stopped. Toggle '▶ Start Webcam Feed' in the sidebar to activate video translation!")
-    sign_display.markdown("<p class='sign-banner'>Stopped</p>", unsafe_allow_html=True)
-    conf_bar.progress(0)
-    conf_text.write("Confidence: 0.0%")
-    sentence_box.info(st.session_state.predictor.current_sentence if st.session_state.predictor.current_sentence else "_Start signing to build a sentence..._")
