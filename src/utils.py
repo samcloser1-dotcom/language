@@ -3,8 +3,10 @@ os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import threading
 import queue
 import numpy as np  # type: ignore
-import cv2  # type: ignore
-import pyttsx3  # type: ignore
+try:
+    import pyttsx3  # type: ignore
+except Exception:
+    pyttsx3 = None
 import mediapipe as mp  # type: ignore
 
 # MediaPipe Hand landmarks visualization solution
@@ -149,12 +151,15 @@ class TextToSpeechManager:
         except Exception:
             pass
 
-        try:
-            engine = pyttsx3.init()
-            engine.setProperty('rate', 150)    # Speaking speed
-            engine.setProperty('volume', 1.0)  # Volume level
-        except Exception as e:
-            print(f"[TTS Warning] Could not initialize pyttsx3 engine: {e}")
+        if pyttsx3 is not None:
+            try:
+                engine = pyttsx3.init()
+                engine.setProperty('rate', 150)    # Speaking speed
+                engine.setProperty('volume', 1.0)  # Volume level
+            except Exception as e:
+                print(f"[TTS Warning] Could not initialize pyttsx3 engine: {e}")
+                engine = None
+        else:
             engine = None
 
         while True:
