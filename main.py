@@ -20,8 +20,14 @@ def main():
         from create_sample_data import generate_sample_dataset
         generate_sample_dataset()
     else:
-        from app.gui import main as run_gui
-        run_gui()
+        try:
+            from app.gui import main as run_gui
+            run_gui()
+        except (ImportError, ModuleNotFoundError):
+            # tkinter not available (e.g. Streamlit Cloud) — launch Streamlit app
+            import subprocess
+            import sys
+            subprocess.run([sys.executable, "-m", "streamlit", "run", "app/streamlit_app.py", "--server.headless", "true"])
 
 if __name__ == "__main__":
     main()
