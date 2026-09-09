@@ -10,10 +10,20 @@ except Exception:
     pyttsx3 = None
 import mediapipe as mp  # type: ignore
 
-# MediaPipe Hand landmarks visualization solution
-mp_hands = mp.solutions.hands  # type: ignore[attr-defined]
-mp_drawing = mp.solutions.drawing_utils  # type: ignore[attr-defined]
-mp_drawing_styles = mp.solutions.drawing_styles  # type: ignore[attr-defined]
+# MediaPipe Hand landmarks visualization solution (robust multi-version import)
+try:
+    from mediapipe.python.solutions import hands as mp_hands  # type: ignore
+    from mediapipe.python.solutions import drawing_utils as mp_drawing  # type: ignore
+    from mediapipe.python.solutions import drawing_styles as mp_drawing_styles  # type: ignore
+except Exception:
+    try:
+        mp_hands = mp.solutions.hands  # type: ignore
+        mp_drawing = mp.solutions.drawing_utils  # type: ignore
+        mp_drawing_styles = getattr(mp.solutions, "drawing_styles", None)  # type: ignore
+    except Exception:
+        import mediapipe.solutions.hands as mp_hands  # type: ignore
+        import mediapipe.solutions.drawing_utils as mp_drawing  # type: ignore
+        mp_drawing_styles = None
 
 # Standard ASL Alphabet + Common Words & Special Gestures
 LABEL_LIST = [
