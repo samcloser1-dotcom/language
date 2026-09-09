@@ -509,17 +509,17 @@ if st.session_state.camera_running:
               const extPinky = dist(pinkyTip, wrist) / (dist(pinkyMcp, wrist) + 0.001);
 
               const isThumb = extThumb > 1.3;
-              const isIndex = extIndex > 1.5;
-              const isMiddle = extMiddle > 1.5;
-              const isRing = extRing > 1.5;
-              const isPinky = extPinky > 1.5;
+              const isIndex = extIndex > 1.45;
+              const isMiddle = extMiddle > 1.45;
+              const isRing = extRing > 1.45;
+              const isPinky = extPinky > 1.45;
 
               const distIndexMiddle = dist(indexTip, middleTip) / palmSize;
               const distIndexThumb = dist(indexTip, thumbTip) / palmSize;
 
               if (isThumb && isIndex && !isMiddle && !isRing && !isPinky) return { sign: "L", conf: 98.5 };
               if (!isThumb && isIndex && isMiddle && !isRing && !isPinky) {
-                return distIndexMiddle > 0.4 ? { sign: "V", conf: 97.8 } : { sign: "U", conf: 95.2 };
+                return distIndexMiddle > 0.35 ? { sign: "V", conf: 97.8 } : { sign: "U", conf: 95.2 };
               }
               if (!isThumb && isIndex && isMiddle && isRing && !isPinky) return { sign: "W", conf: 96.4 };
               if (isThumb && !isIndex && !isMiddle && !isRing && isPinky) return { sign: "Y", conf: 98.9 };
@@ -528,11 +528,15 @@ if st.session_state.camera_running:
               if (!isThumb && isIndex && isMiddle && isRing && isPinky) return { sign: "B", conf: 98.2 };
               if (isThumb && isIndex && isMiddle && isRing && isPinky) return { sign: "HELLO", conf: 95.5 };
               if (!isThumb && !isIndex && !isMiddle && !isRing && !isPinky) {
-                return distIndexThumb < 0.5 ? { sign: "A", conf: 95.0 } : { sign: "E", conf: 92.4 };
+                if (distIndexThumb < 0.45) return { sign: "A", conf: 95.0 };
+                if (dist(thumbTip, indexMcp) < 0.3) return { sign: "S", conf: 94.0 };
+                return { sign: "E", conf: 92.4 };
               }
               if (distIndexThumb < 0.4 && isMiddle && isRing && isPinky) return { sign: "F", conf: 96.0 };
+              if (isThumb && isIndex && !isMiddle && !isRing && !isPinky && thumbTip.x < indexTip.x) return { sign: "G", conf: 94.5 };
+              if (!isThumb && isIndex && isMiddle && !isRing && !isPinky && distIndexMiddle < 0.25) return { sign: "H", conf: 93.8 };
 
-              return { sign: "Hand Detected", conf: 85.0 };
+              return { sign: "Hand Tracked", conf: 88.0 };
             }
 
             function onResults(results) {
@@ -591,6 +595,30 @@ if st.session_state.camera_running:
         """
         
         components.html(html5_camera_code, height=520, scrolling=False)
+        
+        # Dashboard Sync: Deep Neural Classifier Snapshot Input
+        st.markdown("---")
+        st.markdown("##### 🧠 Sync Cloud Stream with Live Dashboard")
+        cloud_snap = st.camera_input("📷 Sync Frame with Neural Network Dashboard", key="cloud_dashboard_sync")
+        if cloud_snap is not None:
+            bytes_data = cloud_snap.getvalue()
+            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            if cv2_img is not None:
+                rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+                try:
+                    hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
+                except Exception:
+                    hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+
+                results = hands.process(rgb_img) if hands else None
+                sign, conf, sentence = st.session_state.predictor.process_frame(results)
+
+                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+                conf_bar.progress(int(conf * 100))
+                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+                if hands:
+                    hands.close()
 else:
     frame_placeholder.info("Camera is currently stopped. Toggle '▶ Start Webcam Feed' in the sidebar to activate video translation!")
     sign_display.markdown("<p class='sign-banner'>Stopped</p>", unsafe_allow_html=True)

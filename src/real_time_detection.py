@@ -123,6 +123,48 @@ class SignLanguagePredictor:
 
         return self.active_sign, self.active_confidence, self.current_sentence
 
+    def process_features(self, features: np.ndarray):
+        """
+        Processes a raw 126-length anatomical feature vector and updates sentence assembly.
+        """
+        if not self.is_loaded or self.model is None or self.label_encoder is None:
+            return "Model Not Loaded", 0.0, self.current_sentence
+
+        hand_present = np.any(features != 0)
+        if not hand_present:
+            self.buffer.clear()
+            self.active_sign = "No Hand Detected"
+            self.active_confidence = 0.0
+            return self.active_sign, self.active_confidence, self.current_sentence
+
+        features = features.reshape(1, -1)
+        probabilities = self.model.predict_proba(features)[0]
+        max_idx = np.argmax(probabilities)
+        confidence = probabilities[max_idx]
+        predicted_sign = self.label_encoder.inverse_transform([max_idx])[0]
+
+        if confidence >= self.confidence_threshold:
+            self.buffer.append(predicted_sign)
+        else:
+            self.buffer.append("Uncertain")
+
+        self.active_sign = predicted_sign
+        self.active_confidence = float(confidence)
+
+        buffer_maxlen = self.buffer.maxlen or len(self.buffer)
+        if len(self.buffer) == buffer_maxlen:
+            counts = Counter(self.buffer)
+            most_common_sign, frequency = counts.most_common(1)[0]
+            
+            if frequency >= int(0.7 * buffer_maxlen) and most_common_sign != "Uncertain":
+                now = time.time()
+                if (most_common_sign != self.last_confirmed_sign) or (now - self.last_prediction_time > self.cooldown_sec):
+                    self.append_to_sentence(most_common_sign)
+                    self.last_confirmed_sign = most_common_sign
+                    self.last_prediction_time = now
+
+        return self.active_sign, self.active_confidence, self.current_sentence
+
     def append_to_sentence(self, sign: str):
         """Appends confirmed sign gesture to live constructed sentence."""
         sign_clean = sign.strip().lower()
