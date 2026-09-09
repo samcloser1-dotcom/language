@@ -3,6 +3,7 @@ os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import threading
 import queue
 import numpy as np  # type: ignore
+import cv2  # type: ignore
 try:
     import pyttsx3  # type: ignore
 except Exception:

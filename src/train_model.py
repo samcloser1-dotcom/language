@@ -85,7 +85,7 @@ def train_sign_model(csv_file=CSV_PATH):
     print(f"Overall Accuracy: {accuracy * 100:.2f}%\n")
     
     print("Detailed Classification Report (Precision / Recall / F1-Score):")
-    print(classification_report(y_test, y_pred, target_names=classes, zero_division="0"))
+    print(classification_report(y_test, y_pred, target_names=classes, zero_division=0))
 
     cm = confusion_matrix(y_test, y_pred)
     print("Confusion Matrix Overview (Diagonal = Correct Predictions):")
