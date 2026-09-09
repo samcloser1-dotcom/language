@@ -12,19 +12,18 @@ import mediapipe as mp  # type: ignore
 
 # MediaPipe Hand landmarks visualization solution
 try:
-    from mediapipe.python.solutions import hands as mp_hands  # type: ignore
-    from mediapipe.python.solutions import drawing_utils as mp_drawing  # type: ignore
-    from mediapipe.python.solutions import drawing_styles as mp_drawing_styles  # type: ignore
+    mp_hands = mp.solutions.hands  # type: ignore
+    mp_drawing = mp.solutions.drawing_utils  # type: ignore
+    mp_drawing_styles = getattr(mp.solutions, "drawing_styles", None)  # type: ignore
 except Exception:
     try:
-        from mediapipe.solutions import hands as mp_hands  # type: ignore
-        from mediapipe.solutions import drawing_utils as mp_drawing  # type: ignore
-        from mediapipe.solutions import drawing_styles as mp_drawing_styles  # type: ignore
+        from mediapipe.python.solutions import hands as mp_hands  # type: ignore
+        from mediapipe.python.solutions import drawing_utils as mp_drawing  # type: ignore
+        from mediapipe.python.solutions import drawing_styles as mp_drawing_styles  # type: ignore
     except Exception:
-        import mediapipe.solutions as mp_solutions  # type: ignore
-        mp_hands = mp_solutions.hands
-        mp_drawing = mp_solutions.drawing_utils
-        mp_drawing_styles = getattr(mp_solutions, "drawing_styles", None)
+        mp_hands = None
+        mp_drawing = None
+        mp_drawing_styles = None
 
 # Standard ASL Alphabet + Common Words & Special Gestures
 LABEL_LIST = [
