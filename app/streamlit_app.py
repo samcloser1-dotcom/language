@@ -162,65 +162,11 @@ with col_calib_btn2:
     show_cloud_calib = st.button(f"📸 Snap Image", use_container_width=True)
 
 if start_webcam_calib:
-    st.sidebar.info(f"🎥 Initiating 30-frame live recording for '{target_sign_calib}'...")
-    progress_bar = st.sidebar.progress(0)
-    status_text = st.sidebar.empty()
-    
-    cap_calib = cv2.VideoCapture(0)
-    samples_recorded = 0
-    
-    try:
-        calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2) if mp_hands else None
-    except Exception:
-        try:
-            calib_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
-        except Exception:
-            calib_hands = None
-
-    os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
-    file_exists = os.path.exists(CSV_PATH)
-    recorded_rows = []
-    start_time = time.time()
-
-    if cap_calib and cap_calib.isOpened() and calib_hands is not None:
-        while samples_recorded < 30 and (time.time() - start_time) < 12.0:
-            ret, frame = cap_calib.read()
-            if not ret:
-                time.sleep(0.04)
-                continue
-
-            frame = cv2.flip(frame, 1)
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            res = calib_hands.process(rgb)
-
-            if res and getattr(res, "multi_hand_landmarks", None):
-                feats = extract_landmarks(res)
-                recorded_rows.append([target_sign_calib] + feats.tolist())
-                samples_recorded += 1
-                progress_bar.progress(int((samples_recorded / 30) * 100))
-                status_text.caption(f"⏺ Captured **{samples_recorded}/30** frames...")
-                time.sleep(0.06)
-
-        cap_calib.release()
-        calib_hands.close()
-    else:
-        if cap_calib:
-            cap_calib.release()
-        if calib_hands:
-            calib_hands.close()
-
-    if samples_recorded > 0:
-        with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["label"] + [f"feat_{i}" for i in range(126)])
-            writer.writerows(recorded_rows)
-
-        acc, _, _ = train_sign_model()
-        st.session_state.predictor.load_model()
-        st.sidebar.success(f"🎉 Calibrated '{target_sign_calib}' with {samples_recorded} real frames! Model Accuracy: **{acc*100:.1f}%**")
-    else:
-        st.sidebar.error("⚠️ Local hardware camera unavailable or hand not detected. Use '📸 Snap Image' on Cloud hosting!")
+    st.session_state.is_calibrating = True
+    st.session_state.calib_target = target_sign_calib
+    st.session_state.calib_rows = []
+    st.session_state.calib_count = 0
+    st.sidebar.info(f"🎥 Calibration active for '{target_sign_calib}'. Hold gesture steady in front of camera!")
 
 if show_cloud_calib:
     st.sidebar.markdown("---")
@@ -423,6 +369,29 @@ if st.session_state.camera_running:
 
             # Process Hand Landmarks
             results = thread_hands.process(rgb_frame) if thread_hands else None
+
+            # Live Stream Calibration Recording Handler
+            if st.session_state.get("is_calibrating", False) and results and getattr(results, "multi_hand_landmarks", None):
+                feats = extract_landmarks(results)
+                target_sign = st.session_state.get("calib_target", "custom_gesture")
+                st.session_state.calib_rows.append([target_sign] + feats.tolist())
+                st.session_state.calib_count += 1
+                
+                status_placeholder.info(f"⏺ Recording Calibration for '{target_sign}': **{st.session_state.calib_count}/30** frames captured!")
+
+                if st.session_state.calib_count >= 30:
+                    st.session_state.is_calibrating = False
+                    os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+                    file_exists = os.path.exists(CSV_PATH)
+                    with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
+                        writer = csv.writer(f)
+                        if not file_exists:
+                            writer.writerow(["label"] + [f"feat_{i}" for i in range(126)])
+                        writer.writerows(st.session_state.calib_rows)
+
+                    acc, _, _ = train_sign_model()
+                    st.session_state.predictor.load_model()
+                    status_placeholder.success(f"🎉 Calibrated '{target_sign}' with 30 real frames! Accuracy: **{acc*100:.1f}%**")
 
             # Draw Skeletal Hand Mesh
             draw_styled_landmarks(frame, results)
