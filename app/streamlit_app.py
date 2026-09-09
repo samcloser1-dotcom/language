@@ -212,7 +212,32 @@ if st.session_state.camera_running:
     cap = cv2.VideoCapture(0)
     
     if not cap.isOpened():
-        status_placeholder.error("Could not open webcam (Device Index 0). Please check your camera permissions.")
+        status_placeholder.info("☁️ **Cloud Mode Active:** Hardware camera unavailable on cloud server. Use your browser's camera snapshot widget below to translate ASL hand signs!")
+        camera_img = st.camera_input("📷 Capture Hand Sign Snapshot")
+        if camera_img is not None:
+            bytes_data = camera_img.getvalue()
+            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            if cv2_img is not None:
+                rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+                try:
+                    hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
+                except Exception:
+                    hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+
+                results = hands.process(rgb_img) if hands else None
+                draw_styled_landmarks(cv2_img, results)
+                sign, conf, sentence = st.session_state.predictor.process_frame(results)
+
+                cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
+                cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+
+                frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
+                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+                conf_bar.progress(int(conf * 100))
+                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+                if hands:
+                    hands.close()
     else:
         status_placeholder.info("Camera active. Show ASL hand gestures to start translating!")
         
@@ -222,9 +247,9 @@ if st.session_state.camera_running:
                 min_detection_confidence=0.55,
                 min_tracking_confidence=0.55,
                 max_num_hands=2
-            )
+            ) if mp_hands else None
         except Exception:
-            thread_hands = mp_hands.Hands(max_num_hands=2)
+            thread_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
 
         while st.session_state.camera_running and cap.isOpened():
             ret, frame = cap.read()
@@ -236,7 +261,7 @@ if st.session_state.camera_running:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Process Hand Landmarks
-            results = thread_hands.process(rgb_frame)
+            results = thread_hands.process(rgb_frame) if thread_hands else None
 
             # Draw Skeletal Hand Mesh
             draw_styled_landmarks(frame, results)
@@ -260,7 +285,8 @@ if st.session_state.camera_running:
             time.sleep(0.01)
 
         cap.release()
-        thread_hands.close()
+        if thread_hands:
+            thread_hands.close()
         status_placeholder.warning("Camera stream stopped.")
 
 else:
