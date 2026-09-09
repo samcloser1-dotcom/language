@@ -133,15 +133,18 @@ def draw_styled_landmarks(image, results):
         image (np.ndarray): BGR image frame from OpenCV.
         results: MediaPipe Hands process result object.
     """
-    if results and results.multi_hand_landmarks:
+    if mp_drawing and mp_hands and results and getattr(results, "multi_hand_landmarks", None):
         for hand_landmarks in results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                image,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS,
-                mp_drawing.DrawingSpec(color=(0, 255, 128), thickness=2, circle_radius=3),
-                mp_drawing.DrawingSpec(color=(255, 200, 0), thickness=2, circle_radius=2)
-            )
+            try:
+                mp_drawing.draw_landmarks(  # type: ignore
+                    image,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS,  # type: ignore
+                    mp_drawing.DrawingSpec(color=(0, 255, 128), thickness=2, circle_radius=3),  # type: ignore
+                    mp_drawing.DrawingSpec(color=(255, 200, 0), thickness=2, circle_radius=2)  # type: ignore
+                )
+            except Exception:
+                pass
 
 
 class TextToSpeechManager:
