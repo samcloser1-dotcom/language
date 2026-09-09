@@ -75,7 +75,7 @@ else:
 if "tts" not in st.session_state:
     st.session_state.tts = TextToSpeechManager()
 if "camera_running" not in st.session_state:
-    st.session_state.camera_running = False
+    st.session_state.camera_running = True
 
 # Sidebar Controls
 st.sidebar.title("🎛️ System Controls")
@@ -203,6 +203,13 @@ col1, col2 = st.columns([3, 2])
 
 with col1:
     st.subheader("📹 Live Camera Feed & Landmark Tracking")
+    cam_btn_col1, _ = st.columns([1, 1])
+    with cam_btn_col1:
+        btn_label = "⏹ Stop Camera Feed" if st.session_state.camera_running else "▶ Start Camera Feed"
+        if st.button(btn_label, use_container_width=True):
+            st.session_state.camera_running = not st.session_state.camera_running
+            st.rerun()
+
     frame_placeholder = st.empty()
     status_placeholder = st.empty()
 
