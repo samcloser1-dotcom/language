@@ -3,7 +3,7 @@ import pickle
 import numpy as np  # type: ignore
 import pandas as pd  # type: ignore
 from sklearn.model_selection import train_test_split  # type: ignore
-from sklearn.neural_network import MLPClassifier  # type: ignore
+from sklearn.ensemble import RandomForestClassifier  # type: ignore
 from sklearn.preprocessing import LabelEncoder  # type: ignore
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix  # type: ignore
 
@@ -54,21 +54,17 @@ def train_sign_model(csv_file=CSV_PATH):
 
     print(f"[Model Training] Training Set: {X_train.shape[0]} samples | Testing Set: {X_test.shape[0]} samples")
 
-    # Neural Network Architecture: MLP Deep Classifier
-    print("[Model Training] Initializing Multi-Layer Perceptron (MLP) Classifier...")
-    model = MLPClassifier(
-        hidden_layer_sizes=(128, 64, 32),
-        activation='relu',
-        solver='adam',
-        max_iter=600,
+    # High-Performance Ensemble Classifier: Random Forest
+    print("[Model Training] Initializing Ensemble Random Forest Classifier...")
+    model = RandomForestClassifier(
+        n_estimators=150,
+        max_depth=20,
         random_state=42,
-        early_stopping=True,
-        n_iter_no_change=15,
-        verbose=False
+        n_jobs=-1
     )
 
-    # Train Neural Network
-    print("[Model Training] Training neural network model...")
+    # Train Model
+    print("[Model Training] Training classifier model...")
     model.fit(X_train, y_train)
 
     # Predictions & Evaluation

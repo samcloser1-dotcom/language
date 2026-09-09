@@ -59,39 +59,39 @@ def generate_sign_skeleton(label):
 
     # Extension states: [Thumb, Index, Middle, Ring, Pinky] (1.0 = Extended, 0.0 = Curled)
     states = {
-        'A': [0.5, 0.0, 0.0, 0.0, 0.0],
+        'A': [0.6, 0.0, 0.0, 0.0, 0.0],
         'B': [0.0, 1.0, 1.0, 1.0, 1.0],
-        'C': [0.5, 0.5, 0.5, 0.5, 0.5],
-        'D': [0.1, 1.0, 0.1, 0.1, 0.1],
-        'E': [0.0, 0.0, 0.0, 0.0, 0.0],
-        'F': [0.2, 0.2, 1.0, 1.0, 1.0],
-        'G': [0.9, 0.9, 0.0, 0.0, 0.0],
-        'H': [0.2, 0.9, 0.9, 0.0, 0.0],
-        'I': [0.0, 0.0, 0.0, 0.0, 1.0],
-        'J': [0.0, 0.0, 0.0, 0.0, 0.9],
-        'K': [0.5, 1.0, 0.8, 0.0, 0.0],
-        'L': [1.0, 1.0, 0.0, 0.0, 0.0],
-        'M': [0.1, 0.1, 0.1, 0.1, 0.0],
-        'N': [0.1, 0.1, 0.1, 0.0, 0.0],
-        'O': [0.3, 0.3, 0.3, 0.3, 0.3],
-        'P': [0.5, 0.8, 0.4, 0.0, 0.0],
-        'Q': [0.5, 0.6, 0.0, 0.0, 0.0],
-        'R': [0.1, 0.95, 0.85, 0.0, 0.0],
-        'S': [0.2, 0.0, 0.0, 0.0, 0.0],
-        'T': [0.2, 0.1, 0.0, 0.0, 0.0],
-        'U': [0.0, 1.0, 0.98, 0.0, 0.0],
-        'V': [0.0, 1.0, 0.92, 0.0, 0.0],
-        'W': [0.0, 1.0, 0.95, 0.90, 0.0],
-        'X': [0.0, 0.4, 0.0, 0.0, 0.0],
-        'Y': [1.0, 0.0, 0.0, 0.0, 1.0],
-        'Z': [0.0, 1.0, 0.0, 0.0, 0.0],
-        'hello': [1.0, 1.0, 1.0, 1.0, 1.0],
-        'thank_you': [0.8, 0.8, 0.8, 0.8, 0.8],
-        'yes': [1.0, 0.0, 0.0, 0.0, 0.0],
-        'no': [0.3, 0.8, 0.8, 0.0, 0.0],
-        'please': [0.9, 0.9, 0.9, 0.9, 0.9],
-        'space': [1.0, 0.5, 0.5, 0.5, 0.5],
-        'delete': [0.0, 0.9, 0.0, 0.0, 0.0],
+        'C': [0.55, 0.55, 0.55, 0.55, 0.55],
+        'D': [0.10, 1.00, 0.10, 0.10, 0.10],
+        'E': [0.00, 0.00, 0.00, 0.00, 0.00],
+        'F': [0.20, 0.20, 1.00, 1.00, 1.00],
+        'G': [0.95, 0.95, 0.00, 0.00, 0.00],
+        'H': [0.15, 0.95, 0.95, 0.00, 0.00],
+        'I': [0.00, 0.00, 0.00, 0.00, 1.00],
+        'J': [0.00, 0.00, 0.00, 0.00, 0.75],
+        'K': [0.50, 1.00, 0.80, 0.00, 0.00],
+        'L': [1.00, 1.00, 0.00, 0.00, 0.00],
+        'M': [0.20, 0.10, 0.10, 0.10, 0.00],
+        'N': [0.20, 0.10, 0.10, 0.00, 0.00],
+        'O': [0.30, 0.30, 0.30, 0.30, 0.30],
+        'P': [0.50, 0.80, 0.40, 0.00, 0.00],
+        'Q': [0.85, 0.40, 0.00, 0.00, 0.00],
+        'R': [0.10, 0.95, 0.85, 0.00, 0.00],
+        'S': [0.40, 0.00, 0.00, 0.00, 0.00],
+        'T': [0.30, 0.10, 0.00, 0.00, 0.00],
+        'U': [0.00, 1.00, 0.98, 0.00, 0.00],
+        'V': [0.00, 1.00, 0.92, 0.00, 0.00],
+        'W': [0.00, 1.00, 0.95, 0.90, 0.00],
+        'X': [0.00, 0.40, 0.00, 0.00, 0.00],
+        'Y': [1.00, 0.00, 0.00, 0.00, 1.00],
+        'Z': [0.00, 0.90, 0.00, 0.00, 0.00],
+        'hello': [1.00, 1.00, 1.00, 1.00, 1.00],
+        'thank_you': [0.70, 0.70, 0.70, 0.70, 0.70],
+        'yes': [1.00, 0.00, 0.00, 0.00, 0.00],
+        'no': [0.20, 0.80, 0.80, 0.00, 0.00],
+        'please': [0.90, 0.90, 0.90, 0.90, 0.40],
+        'space': [1.00, 0.45, 0.45, 0.45, 0.45],
+        'delete': [0.00, 0.85, 0.00, 0.00, 0.00],
     }
 
     ext = states.get(label, [0.5, 0.5, 0.5, 0.5, 0.5])
@@ -114,12 +114,39 @@ def generate_sign_skeleton(label):
         mcp_pos = coords[f_indices[0]]
 
         if e < 0.5:  # Curled Finger into Palm
-            coords[f_indices[1]] = mcp_pos + np.array([0.0, 0.06, 0.06])
-            coords[f_indices[2]] = mcp_pos + np.array([0.0, 0.04, 0.12])
-            coords[f_indices[3]] = mcp_pos + np.array([0.0, 0.02, 0.16])
+            factor = (0.5 - e) * 2.0
+            coords[f_indices[1]] = mcp_pos + np.array([0.0, 0.06 * factor, 0.06 * factor])
+            coords[f_indices[2]] = mcp_pos + np.array([0.0, 0.04 * factor, 0.12 * factor])
+            coords[f_indices[3]] = mcp_pos + np.array([0.0, 0.02 * factor, 0.16 * factor])
 
-    # Custom Spreading for V, U, R, L, Y
-    if label == 'L':
+    # Custom Spreading & Angles for Specific Signs
+    if label == 'A':
+        coords[4] = np.array([0.14, -0.16, -0.04]) # Thumb beside index
+    elif label == 'C':
+        coords[4] = np.array([0.22, -0.22, -0.10]) # Thumb arched C
+        coords[8] = np.array([0.18, -0.45, -0.10]) # Index arched C
+        coords[12] = np.array([0.10, -0.48, -0.10])
+        coords[16] = np.array([-0.02, -0.45, -0.10])
+        coords[20] = np.array([-0.12, -0.38, -0.10])
+    elif label == 'Z':
+        coords[8] = np.array([0.14, -0.68, 0.05])  # Index pointing forward tracing Z
+    elif label == 'J':
+        coords[20] = np.array([-0.25, -0.55, 0.08]) # Pinky hooked for J
+    elif label == 'delete':
+        coords[8] = np.array([0.00, -0.45, -0.20]) # Index bent down for backspace
+    elif label == 'space':
+        coords[4] = np.array([0.45, -0.10, 0.00])  # Thumb extended horizontal
+    elif label == 'S':
+        coords[4] = np.array([0.02, -0.22, 0.04])  # Thumb over fist
+    elif label == 'T':
+        coords[4] = np.array([0.06, -0.25, 0.04])  # Thumb under index
+    elif label == 'E':
+        coords[4] = np.array([0.00, -0.18, 0.06])  # Thumb under all fingertips
+    elif label == 'M':
+        coords[4] = np.array([-0.08, -0.25, 0.04]) # Thumb under 3 fingers
+    elif label == 'N':
+        coords[4] = np.array([-0.04, -0.25, 0.04]) # Thumb under 2 fingers
+    elif label == 'L':
         coords[4] = np.array([0.35, -0.15, -0.04])  # Thumb far right
         coords[8] = np.array([0.08, -0.68, -0.06])  # Index straight up
     elif label == 'V':
