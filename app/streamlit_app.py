@@ -88,6 +88,27 @@ conf_thresh = st.sidebar.slider("Confidence Threshold", min_value=0.40, max_valu
 st.session_state.predictor.confidence_threshold = conf_thresh
 
 st.sidebar.markdown("---")
+with st.sidebar.expander("📖 Supported ASL Hand Signs Guide", expanded=False):
+    st.markdown("""
+    **Supported ASL Alphabet (A-Z):**
+    - 🖐 **A:** Fist with thumb alongside index finger
+    - 🖐 **B:** Flat open hand, 4 fingers straight up
+    - 🖐 **C:** Curved C-shape with fingers and thumb
+    - 🖐 **D:** Index finger straight up, others circle to thumb
+    - 🖐 **L:** L-shape (Index finger up, thumb out)
+    - 🖐 **V:** Victory/Peace sign (Index & middle up)
+    - 🖐 **W:** 3 fingers up (Index, middle, ring)
+    - 🖐 **Y:** Shaka sign (Thumb & pinky out)
+    
+    **Words & Special Actions:**
+    - 💬 **hello:** Open palm facing camera
+    - 👍 **yes:** Thumbs up / fist gesture
+    - 👎 **no:** Index & middle finger pinched to thumb
+    - ␣ **space:** Add space to sentence transcript
+    - ⌫ **delete:** Delete last character from sentence
+    """)
+
+st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 1-Click Calibration Wizard")
 st.sidebar.caption("Record 30 real webcam frames of your hand to calibrate any gesture for 100% precision!")
 
