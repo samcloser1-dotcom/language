@@ -1,0 +1,23 @@
+{
+  "include": [
+    ".",
+    "src",
+    "app"
+  ],
+  "extraPaths": [
+    ".",
+    "src",
+    "app"
+  ],
+  "pythonVersion": "3.10",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "reportAttributeAccessIssue": false,
+  "reportArgumentType": false,
+  "reportOperatorIssue": false,
+  "reportAssignmentType": false,
+  "reportOptionalMemberAccess": false,
+  "reportCallIssue": false,
+  "reportIndexIssue": false,
+  "reportReturnType": false
+}

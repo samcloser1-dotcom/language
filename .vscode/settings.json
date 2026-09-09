@@ -1,0 +1,25 @@
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/src",
+    "${workspaceFolder}/app"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/src",
+    "${workspaceFolder}/app"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportMissingModuleSource": "none",
+    "reportAttributeAccessIssue": "none",
+    "reportArgumentType": "none",
+    "reportOperatorIssue": "none",
+    "reportAssignmentType": "none",
+    "reportOptionalMemberAccess": "none",
+    "reportCallIssue": "none",
+    "reportIndexIssue": "none",
+    "reportReturnType": "none"
+  }
+}
