@@ -382,48 +382,25 @@ else:
 
 # Video Stream Processing Loop
 if st.session_state.camera_running:
-    cap = cv2.VideoCapture(0)
-    
-    if not cap.isOpened():
-        if HAS_WEBRTC and webrtc_streamer is not None:
-            status_placeholder.info("🎥 **Live WebRTC Stream Active:** Click 'START' below to open your browser camera in continuous 30 FPS live mode on Streamlit Cloud!")
-            webrtc_streamer(  # type: ignore
-                key="sign-language-cloud-stream",
-                mode=WebRtcMode.SENDRECV if WebRtcMode else "SENDRECV",  # type: ignore
-                rtc_configuration=RTC_CONFIGURATION,  # type: ignore
-                video_processor_factory=CloudVideoProcessor,  # type: ignore
-                media_stream_constraints={"video": True, "audio": False},
-                async_processing=True,
-            )
-        else:
-            status_placeholder.info("☁️ **Cloud Mode Active:** Hardware camera unavailable on cloud server. Use your browser's camera snapshot widget below to translate ASL hand signs!")
-            camera_img = st.camera_input("📷 Capture Hand Sign Snapshot")
-            if camera_img is not None:
-                bytes_data = camera_img.getvalue()
-                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-                if cv2_img is not None:
-                    rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-                    try:
-                        hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
-                    except Exception:
-                        hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+    cap = None
+    # Attempt opening local hardware webcam (with CAP_DSHOW on Windows for fast lock release)
+    for cap_idx in [0, 1]:
+        try:
+            if sys.platform.startswith("win"):
+                temp_cap = cv2.VideoCapture(cap_idx, cv2.CAP_DSHOW)
+            else:
+                temp_cap = cv2.VideoCapture(cap_idx)
+            if temp_cap and temp_cap.isOpened():
+                cap = temp_cap
+                break
+            else:
+                if temp_cap:
+                    temp_cap.release()
+        except Exception:
+            pass
 
-                    results = hands.process(rgb_img) if hands else None
-                    draw_styled_landmarks(cv2_img, results)
-                    sign, conf, sentence = st.session_state.predictor.process_frame(results)
-
-                    cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
-                    cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
-
-                    frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
-                    sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
-                    conf_bar.progress(int(conf * 100))
-                    conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
-                    sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
-                    if hands:
-                        hands.close()
-    else:
-        status_placeholder.info("Camera active. Show ASL hand gestures to start translating!")
+    if cap and cap.isOpened():
+        status_placeholder.info("🟢 **Live Camera Active:** Show ASL hand gestures to start translating!")
         
         try:
             thread_hands = mp_hands.Hands(
@@ -453,11 +430,11 @@ if st.session_state.camera_running:
             # Predict Sign Gesture
             sign, conf, sentence = st.session_state.predictor.process_frame(results)
 
-            # Visual Banner Overlay on Frame
+            # Pic 2 Overlay: Top-Left Black Box with Sign Text
             cv2.rectangle(frame, (10, 10), (320, 60), (0, 0, 0), -1)
             cv2.putText(frame, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
 
-            # Render Stream to Web Viewport
+            # Render Stream to Web Viewport (Pic 2)
             frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB")
 
             # Render Live Dashboard Updates
@@ -472,7 +449,35 @@ if st.session_state.camera_running:
         if thread_hands:
             thread_hands.close()
         status_placeholder.warning("Camera stream stopped.")
+    else:
+        # Pic 2 Cloud Snapshot Fallback
+        status_placeholder.info("📷 **Camera Snapshot Active:** Capture gesture image below to translate ASL hand signs!")
+        camera_img = st.camera_input("📷 Capture Hand Sign")
+        if camera_img is not None:
+            bytes_data = camera_img.getvalue()
+            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            if cv2_img is not None:
+                rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+                try:
+                    hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
+                except Exception:
+                    hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
 
+                results = hands.process(rgb_img) if hands else None
+                draw_styled_landmarks(cv2_img, results)
+                sign, conf, sentence = st.session_state.predictor.process_frame(results)
+
+                # Pic 2 Overlay
+                cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
+                cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+
+                frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
+                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+                conf_bar.progress(int(conf * 100))
+                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+                if hands:
+                    hands.close()
 else:
     frame_placeholder.info("Camera is currently stopped. Toggle '▶ Start Webcam Feed' in the sidebar to activate video translation!")
     sign_display.markdown("<p class='sign-banner'>Stopped</p>", unsafe_allow_html=True)
