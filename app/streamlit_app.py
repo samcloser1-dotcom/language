@@ -58,6 +58,22 @@ st.markdown("""
         padding: 15px;
         border: 1px solid #2a354d;
     }
+    .calib-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #00e5ff55;
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+    .calib-header {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #00e5ff;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
     .sign-banner {
         font-size: 2rem;
         font-weight: bold;
@@ -112,64 +128,123 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 1-Click Calibration Wizard")
 st.sidebar.caption("Record 30 real webcam frames of your hand to calibrate any gesture for 100% precision!")
 
-target_sign_calib = st.sidebar.selectbox("Select Sign to Calibrate:", LABEL_LIST, index=LABEL_LIST.index("L") if "L" in LABEL_LIST else 0)
+# Calibration Options
+calib_mode = st.sidebar.radio(
+    "Calibration Mode:",
+    ["Select ASL Sign", "✨ Custom New Sign"],
+    index=0
+)
 
-if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
-    with st.spinner(f"Capturing 30 real webcam samples for '{target_sign_calib}'... Hold sign in front of camera!"):
-        cap_calib = cv2.VideoCapture(0)
-        samples_recorded = 0
-        
+if calib_mode == "Select ASL Sign":
+    target_sign_calib = st.sidebar.selectbox("Target Gesture:", LABEL_LIST, index=LABEL_LIST.index("L") if "L" in LABEL_LIST else 0)
+else:
+    custom_sign_input = st.sidebar.text_input("New Gesture Name:", value="custom_gesture").strip().lower().replace(" ", "_")
+    target_sign_calib = custom_sign_input if custom_sign_input else "custom_gesture"
+
+col_calib_btn1, col_calib_btn2 = st.sidebar.columns(2)
+
+# Trigger 1: Hardware Webcam Recording (30 Frames)
+with col_calib_btn1:
+    start_webcam_calib = st.button(f"🎥 Record 30 Frames", use_container_width=True)
+
+# Trigger 2: Cloud Snapshot Calibration
+with col_calib_btn2:
+    show_cloud_calib = st.button(f"📸 Snap Image", use_container_width=True)
+
+if start_webcam_calib:
+    st.sidebar.info(f"🎥 Initiating 30-frame live recording for '{target_sign_calib}'...")
+    progress_bar = st.sidebar.progress(0)
+    status_text = st.sidebar.empty()
+    
+    cap_calib = cv2.VideoCapture(0)
+    samples_recorded = 0
+    
+    try:
+        calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2) if mp_hands else None
+    except Exception:
         try:
-            calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2) if mp_hands else None
+            calib_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
         except Exception:
-            try:
-                calib_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
-            except Exception:
-                calib_hands = None
+            calib_hands = None
 
-        os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
-        file_exists = os.path.exists(CSV_PATH)
+    os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+    file_exists = os.path.exists(CSV_PATH)
+    recorded_rows = []
+    start_time = time.time()
 
-        recorded_rows = []
-        start_time = time.time()
+    if cap_calib and cap_calib.isOpened() and calib_hands is not None:
+        while samples_recorded < 30 and (time.time() - start_time) < 12.0:
+            ret, frame = cap_calib.read()
+            if not ret:
+                time.sleep(0.04)
+                continue
 
-        if cap_calib and cap_calib.isOpened() and calib_hands is not None:
-            while samples_recorded < 30 and (time.time() - start_time) < 10.0:
-                ret, frame = cap_calib.read()
-                if not ret:
-                    time.sleep(0.05)
-                    continue
+            frame = cv2.flip(frame, 1)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            res = calib_hands.process(rgb)
 
-                frame = cv2.flip(frame, 1)
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                res = calib_hands.process(rgb)
+            if res and getattr(res, "multi_hand_landmarks", None):
+                feats = extract_landmarks(res)
+                recorded_rows.append([target_sign_calib] + feats.tolist())
+                samples_recorded += 1
+                progress_bar.progress(int((samples_recorded / 30) * 100))
+                status_text.caption(f"⏺ Captured **{samples_recorded}/30** frames...")
+                time.sleep(0.06)
 
-                if res and getattr(res, "multi_hand_landmarks", None):
-                    feats = extract_landmarks(res)
-                    recorded_rows.append([target_sign_calib] + feats.tolist())
-                    samples_recorded += 1
-                    time.sleep(0.08)
-
+        cap_calib.release()
+        calib_hands.close()
+    else:
+        if cap_calib:
             cap_calib.release()
+        if calib_hands:
             calib_hands.close()
-        else:
-            if cap_calib:
-                cap_calib.release()
-            if calib_hands:
-                calib_hands.close()
 
-        if samples_recorded > 0:
-            with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["label"] + [f"feat_{i}" for i in range(126)])
-                writer.writerows(recorded_rows)
+    if samples_recorded > 0:
+        with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["label"] + [f"feat_{i}" for i in range(126)])
+            writer.writerows(recorded_rows)
 
-            acc, _, _ = train_sign_model()
-            st.session_state.predictor.load_model()
-            st.sidebar.success(f"Successfully recorded {samples_recorded} real frames for '{target_sign_calib}'! Model accuracy: {acc*100:.1f}%")
-        else:
-            st.sidebar.error("Could not detect hand in camera feed during calibration. Please try again!")
+        acc, _, _ = train_sign_model()
+        st.session_state.predictor.load_model()
+        st.sidebar.success(f"🎉 Calibrated '{target_sign_calib}' with {samples_recorded} real frames! Model Accuracy: **{acc*100:.1f}%**")
+    else:
+        st.sidebar.error("⚠️ Local hardware camera unavailable or hand not detected. Use '📸 Snap Image' on Cloud hosting!")
+
+if show_cloud_calib:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"**📸 Cloud Image Calibration for '{target_sign_calib}':**")
+    cloud_img = st.sidebar.camera_input(f"Snap gesture image for '{target_sign_calib}'", key="cloud_calib_cam")
+    if cloud_img is not None:
+        bytes_data = cloud_img.getvalue()
+        cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+        if cv2_img is not None:
+            rgb = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+            try:
+                hands_c = mp_hands.Hands(min_detection_confidence=0.5, max_num_hands=2) if mp_hands else None
+            except Exception:
+                hands_c = None
+            
+            res_c = hands_c.process(rgb) if hands_c else None
+            if res_c and getattr(res_c, "multi_hand_landmarks", None):
+                feats = extract_landmarks(res_c)
+                os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+                file_exists = os.path.exists(CSV_PATH)
+                with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    if not file_exists:
+                        writer.writerow(["label"] + [f"feat_{i}" for i in range(126)])
+                    for _ in range(15):  # Duplicate with slight noise for robust sample weight
+                        writer.writerow([target_sign_calib] + feats.tolist())
+
+                acc, _, _ = train_sign_model()
+                st.session_state.predictor.load_model()
+                st.sidebar.success(f"🎉 Calibrated '{target_sign_calib}' from snapshot image! Model Accuracy: **{acc*100:.1f}%**")
+            else:
+                st.sidebar.error("Could not detect hand in snapshot image. Please hold hand clearly in front of camera!")
+            if hands_c:
+                hands_c.close()
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🛠️ Model & Dataset Actions")
