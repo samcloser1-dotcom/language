@@ -450,45 +450,34 @@ if st.session_state.camera_running:
             thread_hands.close()
         status_placeholder.warning("Camera stream stopped.")
     else:
-        # Streamlit Cloud Mode: WebRTC continuous video streaming with snapshot fallback
-        if HAS_WEBRTC and webrtc_streamer is not None:
-            status_placeholder.info("🎥 **Live WebRTC Stream Active:** Click 'START' below to activate continuous 30 FPS camera feed with live hand gesture tracking!")
-            webrtc_streamer(  # type: ignore
-                key="sign-language-cloud-stream",
-                mode=WebRtcMode.SENDRECV if WebRtcMode else "SENDRECV",  # type: ignore
-                rtc_configuration=RTC_CONFIGURATION,  # type: ignore
-                video_processor_factory=CloudVideoProcessor,  # type: ignore
-                media_stream_constraints={"video": True, "audio": False},
-                async_processing=True,
-            )
-        else:
-            status_placeholder.info("📷 **Camera Snapshot Active:** Capture gesture image below to translate ASL hand signs!")
-            camera_img = st.camera_input("📷 Capture Hand Sign")
-            if camera_img is not None:
-                bytes_data = camera_img.getvalue()
-                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-                if cv2_img is not None:
-                    rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-                    try:
-                        hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
-                    except Exception:
-                        hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+        # Cloud / Remote Camera Snapshot Mode (Pic 2 style)
+        status_placeholder.info("📷 **Camera Snapshot Mode:** Click 'Take Photo' or allow camera access to translate ASL hand signs!")
+        camera_img = st.camera_input("📷 Capture Hand Sign", key="main_cloud_cam_input")
+        if camera_img is not None:
+            bytes_data = camera_img.getvalue()
+            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            if cv2_img is not None:
+                rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
+                try:
+                    hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
+                except Exception:
+                    hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
 
-                    results = hands.process(rgb_img) if hands else None
-                    draw_styled_landmarks(cv2_img, results)
-                    sign, conf, sentence = st.session_state.predictor.process_frame(results)
+                results = hands.process(rgb_img) if hands else None
+                draw_styled_landmarks(cv2_img, results)
+                sign, conf, sentence = st.session_state.predictor.process_frame(results)
 
-                    # Pic 2 Overlay
-                    cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
-                    cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+                # Pic 2 Overlay
+                cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
+                cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
 
-                    frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
-                    sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
-                    conf_bar.progress(int(conf * 100))
-                    conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
-                    sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
-                    if hands:
-                        hands.close()
+                frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
+                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
+                conf_bar.progress(int(conf * 100))
+                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
+                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
+                if hands:
+                    hands.close()
 else:
     frame_placeholder.info("Camera is currently stopped. Toggle '▶ Start Webcam Feed' in the sidebar to activate video translation!")
     sign_display.markdown("<p class='sign-banner'>Stopped</p>", unsafe_allow_html=True)
