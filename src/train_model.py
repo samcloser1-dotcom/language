@@ -40,12 +40,12 @@ def train_sign_model(csv_file=CSV_PATH):
     
     # Label Encoding
     label_encoder = LabelEncoder()
-    y = label_encoder.fit_transform(y_raw)
+    y = label_encoder.fit_transform(y_raw)  # type: ignore
     classes = [str(c) for c in label_encoder.classes_]
     print(f"[Model Training] Identified {len(classes)} distinct gesture classes: {classes}")
 
     # Stratified Train-Test Split (fallback if any class has < 2 samples)
-    min_class_samples = pd.Series(y).value_counts().min()
+    min_class_samples = pd.Series(y).value_counts().min()  # type: ignore
     use_stratify = y if min_class_samples >= 2 else None
 
     X_train, X_test, y_train, y_test = train_test_split(
