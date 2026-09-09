@@ -10,36 +10,21 @@ except Exception:
     pyttsx3 = None
 import mediapipe as mp  # type: ignore
 
-# MediaPipe Hand landmarks visualization solution (bulletproof multi-environment resolution)
-mp_hands = None
-mp_drawing = None
-mp_drawing_styles = None
-
+# MediaPipe Hand landmarks visualization solution
 try:
-    import mediapipe.python.solutions.hands as mp_hands  # type: ignore
-    import mediapipe.python.solutions.drawing_utils as mp_drawing  # type: ignore
+    from mediapipe.python.solutions import hands as mp_hands  # type: ignore
+    from mediapipe.python.solutions import drawing_utils as mp_drawing  # type: ignore
+    from mediapipe.python.solutions import drawing_styles as mp_drawing_styles  # type: ignore
 except Exception:
-    pass
-
-if mp_hands is None:
     try:
-        import mediapipe.solutions.hands as mp_hands  # type: ignore
-        import mediapipe.solutions.drawing_utils as mp_drawing  # type: ignore
+        from mediapipe.solutions import hands as mp_hands  # type: ignore
+        from mediapipe.solutions import drawing_utils as mp_drawing  # type: ignore
+        from mediapipe.solutions import drawing_styles as mp_drawing_styles  # type: ignore
     except Exception:
-        pass
-
-if mp_hands is None:
-    try:
-        import mediapipe.solutions  # type: ignore
-        mp_hands = mp.solutions.hands  # type: ignore
-        mp_drawing = mp.solutions.drawing_utils  # type: ignore
-    except Exception:
-        pass
-
-try:
-    import mediapipe.python.solutions.drawing_styles as mp_drawing_styles  # type: ignore
-except Exception:
-    pass
+        import mediapipe.solutions as mp_solutions  # type: ignore
+        mp_hands = mp_solutions.hands
+        mp_drawing = mp_solutions.drawing_utils
+        mp_drawing_styles = getattr(mp_solutions, "drawing_styles", None)
 
 # Standard ASL Alphabet + Common Words & Special Gestures
 LABEL_LIST = [

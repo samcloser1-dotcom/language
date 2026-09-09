@@ -99,9 +99,12 @@ if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
         samples_recorded = 0
         
         try:
-            calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2)
+            calib_hands = mp_hands.Hands(min_detection_confidence=0.6, max_num_hands=2) if mp_hands else None
         except Exception:
-            calib_hands = mp_hands.Hands(max_num_hands=2)
+            try:
+                calib_hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+            except Exception:
+                calib_hands = None
 
         os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
         file_exists = os.path.exists(CSV_PATH)
