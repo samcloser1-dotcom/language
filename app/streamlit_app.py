@@ -450,34 +450,87 @@ if st.session_state.camera_running:
             thread_hands.close()
         status_placeholder.warning("Camera stream stopped.")
     else:
-        # Cloud / Remote Camera Snapshot Mode (Pic 2 style)
-        status_placeholder.info("📷 **Camera Snapshot Mode:** Click 'Take Photo' or allow camera access to translate ASL hand signs!")
-        camera_img = st.camera_input("📷 Capture Hand Sign", key="main_cloud_cam_input")
-        if camera_img is not None:
-            bytes_data = camera_img.getvalue()
-            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-            if cv2_img is not None:
-                rgb_img = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
-                try:
-                    hands = mp_hands.Hands(min_detection_confidence=0.55, max_num_hands=2) if mp_hands else None
-                except Exception:
-                    hands = mp_hands.Hands(max_num_hands=2) if mp_hands else None
+        # Streamlit Cloud Mode: Continuous HTML5 MediaPipe 30 FPS Live Webcam Stream (No Take Photo Button Required)
+        status_placeholder.info("🟢 **Live Camera Stream Active:** Continuous 30 FPS hand gesture tracking active!")
+        
+        import streamlit.components.v1 as components
+        
+        html5_camera_code = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+          <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+          <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+          <style>
+            body { margin: 0; padding: 0; background: #0f172a; font-family: sans-serif; display: flex; justify-content: center; }
+            .container { position: relative; width: 100%; max-width: 640px; border-radius: 10px; overflow: hidden; border: 2px solid #00e5ff; }
+            video { width: 100%; height: auto; transform: scaleX(-1); display: block; }
+            canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+            .banner { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); color: #00e5ff; padding: 6px 14px; border-radius: 6px; font-size: 16px; font-weight: bold; z-index: 10; border: 1px solid #00e5ff55; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div id="sign_banner" class="banner">Sign: Initializing Camera...</div>
+            <video id="webcam" autoplay playsinline muted></video>
+            <canvas id="output_canvas"></canvas>
+          </div>
+          <script>
+            const videoElement = document.getElementById('webcam');
+            const canvasElement = document.getElementById('output_canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+            const banner = document.getElementById('sign_banner');
 
-                results = hands.process(rgb_img) if hands else None
-                draw_styled_landmarks(cv2_img, results)
-                sign, conf, sentence = st.session_state.predictor.process_frame(results)
+            function onResults(results) {
+              canvasElement.width = videoElement.videoWidth || 640;
+              canvasElement.height = videoElement.videoHeight || 480;
+              canvasCtx.save();
+              canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+              
+              if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                for (const landmarks of results.multiHandLandmarks) {
+                  drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF80', lineWidth: 3});
+                  drawLandmarks(canvasCtx, landmarks, {color: '#FFC800', lineWidth: 2, radius: 4});
+                }
+                banner.innerText = "Sign: Hand Tracked (Live)";
+              } else {
+                banner.innerText = "Sign: No Hand Detected";
+              }
+              canvasCtx.restore();
+            }
 
-                # Pic 2 Overlay
-                cv2.rectangle(cv2_img, (10, 10), (320, 60), (0, 0, 0), -1)
-                cv2.putText(cv2_img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
+            const hands = new Hands({
+              locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
 
-                frame_placeholder.image(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB), channels="RGB")
-                sign_display.markdown(f"<p class='sign-banner'>{sign}</p>", unsafe_allow_html=True)
-                conf_bar.progress(int(conf * 100))
-                conf_text.write(f"Confidence: **{conf * 100:.1f}%**")
-                sentence_box.info(sentence if sentence else "_Start signing to build a sentence..._")
-                if hands:
-                    hands.close()
+            hands.setOptions({
+              maxNumHands: 2,
+              modelComplexity: 1,
+              minDetectionConfidence: 0.55,
+              minTrackingConfidence: 0.55
+            });
+
+            hands.onResults(onResults);
+
+            const camera = new Camera(videoElement, {
+              onFrame: async () => {
+                await hands.send({image: videoElement});
+              },
+              width: 640,
+              height: 480
+            });
+            camera.start().then(() => {
+              banner.innerText = "Sign: No Hand Detected";
+            }).catch(err => {
+              banner.innerText = "Camera Access Error: " + err;
+            });
+          </script>
+        </body>
+        </html>
+        """
+        
+        components.html(html5_camera_code, height=520, scrolling=False)
 else:
     frame_placeholder.info("Camera is currently stopped. Toggle '▶ Start Webcam Feed' in the sidebar to activate video translation!")
     sign_display.markdown("<p class='sign-banner'>Stopped</p>", unsafe_allow_html=True)
