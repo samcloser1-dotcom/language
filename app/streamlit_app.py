@@ -112,24 +112,30 @@ if st.sidebar.button(f"📸 Calibrate '{target_sign_calib}' from Webcam"):
         recorded_rows = []
         start_time = time.time()
 
-        while samples_recorded < 30 and (time.time() - start_time) < 10.0:
-            ret, frame = cap_calib.read()
-            if not ret:
-                time.sleep(0.05)
-                continue
+        if cap_calib and cap_calib.isOpened() and calib_hands is not None:
+            while samples_recorded < 30 and (time.time() - start_time) < 10.0:
+                ret, frame = cap_calib.read()
+                if not ret:
+                    time.sleep(0.05)
+                    continue
 
-            frame = cv2.flip(frame, 1)
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            res = calib_hands.process(rgb)
+                frame = cv2.flip(frame, 1)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                res = calib_hands.process(rgb)
 
-            if res and res.multi_hand_landmarks:
-                feats = extract_landmarks(res)
-                recorded_rows.append([target_sign_calib] + feats.tolist())
-                samples_recorded += 1
-                time.sleep(0.08)
+                if res and getattr(res, "multi_hand_landmarks", None):
+                    feats = extract_landmarks(res)
+                    recorded_rows.append([target_sign_calib] + feats.tolist())
+                    samples_recorded += 1
+                    time.sleep(0.08)
 
-        cap_calib.release()
-        calib_hands.close()
+            cap_calib.release()
+            calib_hands.close()
+        else:
+            if cap_calib:
+                cap_calib.release()
+            if calib_hands:
+                calib_hands.close()
 
         if samples_recorded > 0:
             with open(CSV_PATH, "a" if file_exists else "w", newline="", encoding="utf-8") as f:
