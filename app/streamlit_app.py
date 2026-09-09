@@ -372,18 +372,9 @@ if HAS_WEBRTC and RTCConfiguration is not None:
             
             sign, conf, sentence = self.predictor.process_frame(results)
 
-            # Draw HUD visual overlay directly onto video stream
-            h, w, _ = img.shape
-            cv2.rectangle(img, (0, 0), (w, 55), (15, 23, 42), -1)
-            cv2.line(img, (0, 55), (w, 55), (0, 229, 255), 2)
-            banner_text = f"SIGN: {sign.upper()} ({conf*100:.1f}%)"
-            cv2.putText(img, banner_text, (15, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2, cv2.LINE_AA)
-            
-            if sentence:
-                cv2.rectangle(img, (0, h - 45), (w, h), (15, 23, 42), -1)
-                cv2.line(img, (0, h - 45), (w, h - 45), (0, 229, 255), 1)
-                sent_text = f"Sentence: {sentence}"
-                cv2.putText(img, sent_text, (15, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1, cv2.LINE_AA)
+            # Original camera overlay style
+            cv2.rectangle(img, (10, 10), (320, 60), (0, 0, 0), -1)
+            cv2.putText(img, f"Sign: {sign}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 229, 255), 2)
 
             return av.VideoFrame.from_ndarray(img, format="bgr24")  # type: ignore
 else:
