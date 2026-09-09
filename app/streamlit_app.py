@@ -556,7 +556,15 @@ if st.session_state.camera_running:
             camera.start().then(() => {
               banner.innerText = "Sign: No Hand Detected";
             }).catch(err => {
-              banner.innerText = "Camera Error: " + err;
+              const errStr = String(err);
+              if (err.name === 'NotReadableError' || errStr.includes('Device in use') || errStr.includes('Could not start')) {
+                banner.innerText = "⚠️ Camera in use by Localhost tab! Close http://localhost:8501 to use Cloud camera.";
+                banner.style.background = "rgba(220, 38, 38, 0.95)";
+                banner.style.borderColor = "#ff4444";
+                banner.style.color = "#ffffff";
+              } else {
+                banner.innerText = "Camera Access Error: " + err;
+              }
             });
           </script>
         </body>
